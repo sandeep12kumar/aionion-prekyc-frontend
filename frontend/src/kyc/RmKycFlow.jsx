@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronRight, Save } from "lucide-react";
+import { apiUrl } from "../lib/apiBase";
 
 import Step1LeadEntry from "./steps/Step1LeadEntry";
 import Step2PanIdentity from "./steps/Step2PanIdentity";
@@ -320,7 +321,7 @@ export default function RmKycFlow() {
   };
 
   const saveLead = async () => {
-    const response = await fetch("/api/kyc/leads", {
+    const response = await fetch(apiUrl("/api/kyc/leads"), {
       method: "POST",
 
       headers: {
@@ -394,7 +395,7 @@ export default function RmKycFlow() {
 
       try {
         const response = await fetch(
-          `/api/kyc/leads/${data.lead.databaseId}/bank/verify-and-save`,
+          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/bank/verify-and-save`),
           {
             method: "POST",
 
@@ -627,7 +628,7 @@ export default function RmKycFlow() {
 
       try {
         const response = await fetch(
-          `/api/kyc/leads/${data.lead.databaseId}/personal`,
+          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/personal`),
           {
             method: "POST",
 
@@ -849,7 +850,7 @@ export default function RmKycFlow() {
 
       try {
         const response = await fetch(
-          `/api/kyc/leads/${data.lead.databaseId}/nominees`,
+          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/nominees`),
           {
             method: "POST",
 
@@ -905,7 +906,7 @@ export default function RmKycFlow() {
 
       try {
         const response = await fetch(
-          `/api/kyc/leads/${data.lead.databaseId}/scheme`,
+          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/scheme`),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, Send } from "lucide-react";
 import { calculateAge, isFutureDate, MIN_NOMINEE_AGE } from "./Step5Nominee";
+import { apiUrl } from "../../lib/apiBase";
 
 const SCHEME_LABELS = {
   lifeTime: "Life Time Advantage",
@@ -44,7 +45,7 @@ export default function Step8Review({ allData: data }) {
     setIsSending(true);
 
     try {
-      const response = await fetch(`/api/kyc/leads/${leadId}/send-client-link`, { method: "POST" });
+      const response = await fetch(apiUrl(`/api/kyc/leads/${leadId}/send-client-link`), { method: "POST" });
       const result = await response.json().catch(() => ({}));
 
       if (!result.sent) {
@@ -70,7 +71,7 @@ export default function Step8Review({ allData: data }) {
 
     let cancelled = false;
 
-    fetch(`/api/kyc/leads/${leadId}`)
+    fetch(apiUrl(`/api/kyc/leads/${leadId}`))
       .then((response) => (response.ok ? response.json() : null))
       .then((result) => {
         if (!cancelled && result?.lead) setSavedLead(result.lead);

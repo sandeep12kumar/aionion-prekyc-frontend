@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ResultGrid, ResultLayout } from "./ResultLayout";
+import { apiUrl } from "../../lib/apiBase";
 
 export default function DigilockerResultPage() {
   const query = new URLSearchParams(window.location.search);
@@ -19,7 +20,7 @@ export default function DigilockerResultPage() {
       return;
     }
     fetch(
-      `/api/kyc/leads/${leadId}/digilocker/${encodeURIComponent(requestId)}`,
+      apiUrl(`/api/kyc/leads/${leadId}/digilocker/${encodeURIComponent(requestId)}`),
     )
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));

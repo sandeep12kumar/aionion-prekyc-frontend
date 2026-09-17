@@ -9,8 +9,8 @@ export default defineConfig({
     port: Number(process.env.PORT) || 5199,
     strictPort: false,
     proxy: {
-      "/api": "http://localhost:3001",
-      "/uploads": "http://localhost:3001",
+      "/api": "https://9llmk10gkk.execute-api.ap-south-1.amazonaws.com/default",
+      "/uploads": "https://9llmk10gkk.execute-api.ap-south-1.amazonaws.com/default",
     },
   },
 })

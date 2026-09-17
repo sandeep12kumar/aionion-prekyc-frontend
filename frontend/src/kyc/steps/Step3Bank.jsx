@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { StepShell, TextField, SelectField } from "../formFields";
+import { apiUrl } from "../../lib/apiBase";
 
 export default function Step3Bank({ data, onChange }) {
   const [accountMasked, setAccountMasked] = useState(false);
@@ -33,7 +34,7 @@ export default function Step3Bank({ data, onChange }) {
     const timer = setTimeout(async () => {
       setIsFetchingBank(true);
       try {
-        const response = await fetch(`/api/kyc/banks/ifsc/${encodeURIComponent(ifsc)}`, { signal: controller.signal });
+        const response = await fetch(apiUrl(`/api/kyc/banks/ifsc/${encodeURIComponent(ifsc)}`), { signal: controller.signal });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.message || "Unable to fetch bank details.");
         onChange({ ...data, ifsc_code: ifsc, ...result.bank, bank_verified: false });

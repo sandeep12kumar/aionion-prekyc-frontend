@@ -2,10 +2,18 @@
  * Talks to the shared KYC backend (../server). Every call here is keyed by
  * the application's secure-link id (its unique_id, from the URL the client
  * received by email/SMS) — never the sequential lead id.
+ *
+ * The backend lives on a separate domain (API Gateway -> Lambda), not this
+ * app's own origin, so every request needs API_BASE prefixed on — a
+ * relative "/api/..." call would otherwise hit this app's own Amplify
+ * domain, which has nothing listening there. Set at build time via
+ * VITE_API_BASE_URL (see .env); empty string falls back to same-origin
+ * relative requests (e.g. local dev behind the Vite proxy in vite.config.js).
  */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 async function request(path, options = {}) {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(`${API_BASE}/api${path}`, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
@@ -69,7 +77,7 @@ export async function uploadIpvCapture(applicationId, { videoBlob, photoBlob, la
   if (accuracy != null) body.append("accuracy", String(accuracy));
   if (capturedAt) body.append("capturedAt", capturedAt.toISOString());
 
-  const response = await fetch(`/api/kyc/leads/${encodeURIComponent(applicationId)}/ipv`, {
+  const response = await fetch(`${API_BASE}/api/kyc/leads/${encodeURIComponent(applicationId)}/ipv`, {
     method: "POST",
     body,
   });

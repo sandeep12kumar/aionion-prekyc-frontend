@@ -5,6 +5,7 @@ import {
   ResultGrid,
   ResultLayout,
 } from "./ResultLayout";
+import { apiUrl } from "../../lib/apiBase";
 
 export default function IncomeTaxResultPage() {
   const result = readVerificationResult();
@@ -28,7 +29,7 @@ export default function IncomeTaxResultPage() {
     setStarting(true);
     try {
       const response = await fetch(
-        `/api/kyc/leads/${result.leadId}/digilocker/start`,
+        apiUrl(`/api/kyc/leads/${result.leadId}/digilocker/start`),
         { method: "POST" },
       );
       const body = await response.json().catch(() => ({}));

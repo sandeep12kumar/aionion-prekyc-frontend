@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { apiUrl } from "../../lib/apiBase";
 
 const MAX_SIGNATURE_SIZE = 5 * 1024 * 1024;
 
@@ -44,7 +45,7 @@ export default function Step7Signature({ data, onChange, allData }) {
     try {
       const body = new FormData();
       body.append("signatureImage", file);
-      const response = await fetch(`/api/kyc/leads/${leadId}/signature-image`, { method: "POST", body });
+      const response = await fetch(apiUrl(`/api/kyc/leads/${leadId}/signature-image`), { method: "POST", body });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         const detail = result.debug ? ` (${result.debug.code}: ${result.debug.details})` : "";

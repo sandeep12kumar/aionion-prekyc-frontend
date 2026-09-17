@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { StepShell, TextField } from "../formFields";
+import { apiUrl } from "../../lib/apiBase";
 
 // The real system decides KRA vs DigiLocker automatically from the PAN
 // verification response (see Open Question 2 in RM_KYC_FLOW_DESIGN.md) —
@@ -36,7 +37,7 @@ export default function Step2PanIdentity({ data, onChange, allData }) {
     if (!leadId) return setVerificationError("Save Step 1 successfully before verifying PAN.");
     setIsVerifying(true);
     try {
-      const response = await fetch(`/api/kyc/leads/${leadId}/pan/verify`, {
+      const response = await fetch(apiUrl(`/api/kyc/leads/${leadId}/pan/verify`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pan_number: data.pan_number, dob: data.dob }),
@@ -89,7 +90,7 @@ export default function Step2PanIdentity({ data, onChange, allData }) {
     try {
       const body = new FormData();
       body.append("panImage", file);
-      const response = await fetch(`/api/kyc/leads/${leadId}/pan-image`, { method: "POST", body });
+      const response = await fetch(apiUrl(`/api/kyc/leads/${leadId}/pan-image`), { method: "POST", body });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         const detail = result.debug ? ` (${result.debug.code}: ${result.debug.details})` : "";
