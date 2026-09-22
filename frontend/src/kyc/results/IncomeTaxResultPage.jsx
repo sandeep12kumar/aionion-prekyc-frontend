@@ -99,6 +99,52 @@ export default function IncomeTaxResultPage() {
       {error && (
         <p className='mt-4 text-center text-sm text-rose-600'>{error}</p>
       )}
+
+      {/* Temporary — shows why a found KRA record fell through to DigiLocker.
+          Remove alongside the backend's kraDiagnostic once eligibility
+          checks are confirmed against real CVL responses. */}
+      {result.kraDiagnostic && (
+        <div className='mt-8 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-slate-700'>
+          <p className='mb-2 font-bold text-amber-800'>
+            Debug: KRA record found but routed to DigiLocker — here's why
+          </p>
+          <table className='w-full border-collapse'>
+            <tbody>
+              <tr>
+                <td className='py-1 pr-3 font-semibold'>KRA status code</td>
+                <td className='py-1'>
+                  {String(result.kraDiagnostic.kraStatusRaw)} (eligible:{" "}
+                  {String(result.kraDiagnostic.statusEligible)})
+                </td>
+              </tr>
+              <tr>
+                <td className='py-1 pr-3 font-semibold'>Mobile</td>
+                <td className='py-1'>
+                  lead: {result.kraDiagnostic.lead_mobile || "(blank)"} vs kra:{" "}
+                  {result.kraDiagnostic.kra_mobile || "(blank)"} — match:{" "}
+                  {String(result.kraDiagnostic.mobileMatches)}
+                </td>
+              </tr>
+              <tr>
+                <td className='py-1 pr-3 font-semibold'>Email</td>
+                <td className='py-1'>
+                  lead: {result.kraDiagnostic.lead_email || "(blank)"} vs kra:{" "}
+                  {result.kraDiagnostic.kra_email || "(blank)"} — match:{" "}
+                  {String(result.kraDiagnostic.emailMatches)}
+                </td>
+              </tr>
+              <tr>
+                <td className='py-1 pr-3 font-semibold'>Name</td>
+                <td className='py-1'>
+                  itr: {result.kraDiagnostic.itr_name || "(blank)"} vs kra:{" "}
+                  {result.kraDiagnostic.kra_name || "(blank)"} — match:{" "}
+                  {String(result.kraDiagnostic.nameMatches)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </ResultLayout>
   );
 }

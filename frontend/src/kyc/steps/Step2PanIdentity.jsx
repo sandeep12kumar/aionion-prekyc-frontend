@@ -90,6 +90,10 @@ export default function Step2PanIdentity({ data, onChange, allData }) {
     try {
       const body = new FormData();
       body.append("panImage", file);
+      // pan_number isn't saved to the row yet at this point (that only
+      // happens on Verify) — send it along so the backend can name the S3
+      // object after the PAN, matching the eSigned PDF/Aadhaar XML.
+      body.append("pan_number", data.pan_number || "");
       const response = await fetch(apiUrl(`/api/kyc/leads/${leadId}/pan-image`), { method: "POST", body });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
