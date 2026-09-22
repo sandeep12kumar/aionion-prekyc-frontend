@@ -73,20 +73,7 @@ function emptyData() {
 
   const identityDetails = verifiedIdentity?.details || {};
 
-  const verifiedAddress =
-    verifiedIdentity?.route === "KRA"
-      ? [
-          identityDetails.address_1,
-          identityDetails.address_2,
-          identityDetails.address_3,
-          identityDetails.city,
-          identityDetails.district,
-          identityDetails.state,
-          identityDetails.pincode,
-        ]
-          .filter(Boolean)
-          .join(", ")
-      : identityDetails.address || "";
+  const verifiedAddress = identityDetails.address || "";
 
   return {
     leadId: `LEAD-${Date.now()}`,
@@ -169,7 +156,7 @@ export default function RmKycFlow() {
 
     // Only pick the draft back up out of localStorage when the URL names
     // the lead it belongs to — that's the case right after PAN & Identity's
-    // verify step, which hard-navigates to the KRA/Income Tax result page
+    // verify step, which hard-navigates to the Income Tax result page
     // and back via `?step=...&leadId=...`, tearing this component down and
     // remounting it in between. A plain page refresh/reopen with no leadId
     // in the URL is a fresh start, not a resume, so it must NOT pull in
@@ -201,7 +188,7 @@ export default function RmKycFlow() {
     // The step name lives in the URL path (e.g. /personal, /bank) so each
     // step is a bookmarkable/refreshable link. `?step=...` is a separate,
     // older mechanism used only for the one-time handoff back from the
-    // KRA/Income Tax result pages (see the sync effect below) — checked
+    // Income Tax result page (see the sync effect below) — checked
     // second, so a path already naming a step always wins.
     const pathKey = window.location.pathname.replace(/^\/+/, "");
     const pathIndex = STEPS.findIndex((item) => item.key === pathKey);
@@ -268,7 +255,7 @@ export default function RmKycFlow() {
   // Keep the draft in localStorage in sync with every in-memory change, not
   // just the explicit "Save & Continue" checkpoints. PAN & Identity (and the
   // DigiLocker route) hard-navigate away via window.location.assign to show
-  // the KRA/Income Tax result pages, which tears down this component and
+  // the Income Tax result page, which tears down this component and
   // its React state entirely — anything not already in localStorage at that
   // point was lost, which is why Lead and PAN & Identity details went
   // missing by the time the flow came back on Bank/Review.

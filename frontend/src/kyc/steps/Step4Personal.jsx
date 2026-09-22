@@ -219,7 +219,7 @@ export default function Step4Personal({ data, onChange }) {
         full
         value={data.aadhaar_address}
         onChange={set("aadhaar_address")}
-        placeholder='Pre-filled from KRA/DigiLocker when available'
+        placeholder='Pre-filled from DigiLocker when available'
       />
 
       <YesNoField

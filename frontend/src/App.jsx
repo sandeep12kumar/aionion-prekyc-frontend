@@ -1,5 +1,4 @@
 import RmKycFlow from "./kyc/RmKycFlow";
-import KraResultPage from "./kyc/results/KraResultPage";
 import IncomeTaxResultPage from "./kyc/results/IncomeTaxResultPage";
 import DigilockerResultPage from "./kyc/results/DigilockerResultPage";
 
@@ -9,7 +8,6 @@ import DigilockerResultPage from "./kyc/results/DigilockerResultPage";
 // full design context this prototype is based on.
 export default function App() {
   const pages = {
-    "/kra-result": KraResultPage,
     "/income-tax-result": IncomeTaxResultPage,
     "/digilocker-success": DigilockerResultPage,
   };
