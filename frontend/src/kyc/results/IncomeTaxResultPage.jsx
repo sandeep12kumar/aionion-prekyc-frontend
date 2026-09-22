@@ -12,17 +12,13 @@ export default function IncomeTaxResultPage() {
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
 
-  // ITR details live in `result.itr` (always) — fall back to `result.details`
-  // for older cached results on the INCOME_TAX route.
-  const itr = result?.itr || (result?.route === "INCOME_TAX" ? result?.details : null);
+  const itr = result?.itr || result?.details;
   if (!itr)
     return (
       <ResultLayout title='Income Tax Details'>
         <EmptyResult />
       </ResultLayout>
     );
-
-  const isKraRoute = result.route === "KRA";
 
   const launchDigilocker = async () => {
     setError("");
@@ -62,88 +58,26 @@ export default function IncomeTaxResultPage() {
         ]}
       />
 
-      {isKraRoute ? (
+      {!result.aadhaarLinked && (
+        <p className='mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700'>
+          PAN and Aadhaar are not linked. Link Aadhaar with PAN before
+          proceeding. You cannot continue to the next step.
+        </p>
+      )}
+      {result.aadhaarLinked && (
         <div className='mt-8 text-center'>
-          <p className='mb-4 text-sm text-slate-600'>
-            This PAN is registered with a KRA. Continue to review the KRA record.
-          </p>
           <button
-            onClick={() => window.location.assign("/kra-result")}
-            className='rounded-xl bg-blue-700 px-10 py-3 text-sm font-bold text-white'
+            onClick={launchDigilocker}
+            disabled={starting}
+            className='rounded-xl bg-blue-700 px-10 py-3 text-sm font-bold text-white disabled:opacity-60'
           >
-            Continue to KRA details
+            {starting ? "Opening DigiLocker..." : "Continue to DigiLocker"}
           </button>
         </div>
-      ) : (
-        <>
-          {!result.aadhaarLinked && (
-            <p className='mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700'>
-              PAN and Aadhaar are not linked. Link Aadhaar with PAN before
-              proceeding. You cannot continue to the next step.
-            </p>
-          )}
-          {result.aadhaarLinked && (
-            <div className='mt-8 text-center'>
-              <button
-                onClick={launchDigilocker}
-                disabled={starting}
-                className='rounded-xl bg-blue-700 px-10 py-3 text-sm font-bold text-white disabled:opacity-60'
-              >
-                {starting ? "Opening DigiLocker..." : "Continue to DigiLocker"}
-              </button>
-            </div>
-          )}
-        </>
       )}
 
       {error && (
         <p className='mt-4 text-center text-sm text-rose-600'>{error}</p>
-      )}
-
-      {/* Temporary — shows why a found KRA record fell through to DigiLocker.
-          Remove alongside the backend's kraDiagnostic once eligibility
-          checks are confirmed against real CVL responses. */}
-      {result.kraDiagnostic && (
-        <div className='mt-8 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-slate-700'>
-          <p className='mb-2 font-bold text-amber-800'>
-            Debug: KRA record found but routed to DigiLocker — here's why
-          </p>
-          <table className='w-full border-collapse'>
-            <tbody>
-              <tr>
-                <td className='py-1 pr-3 font-semibold'>KRA status code</td>
-                <td className='py-1'>
-                  {String(result.kraDiagnostic.kraStatusRaw)} (eligible:{" "}
-                  {String(result.kraDiagnostic.statusEligible)})
-                </td>
-              </tr>
-              <tr>
-                <td className='py-1 pr-3 font-semibold'>Mobile</td>
-                <td className='py-1'>
-                  lead: {result.kraDiagnostic.lead_mobile || "(blank)"} vs kra:{" "}
-                  {result.kraDiagnostic.kra_mobile || "(blank)"} — match:{" "}
-                  {String(result.kraDiagnostic.mobileMatches)}
-                </td>
-              </tr>
-              <tr>
-                <td className='py-1 pr-3 font-semibold'>Email</td>
-                <td className='py-1'>
-                  lead: {result.kraDiagnostic.lead_email || "(blank)"} vs kra:{" "}
-                  {result.kraDiagnostic.kra_email || "(blank)"} — match:{" "}
-                  {String(result.kraDiagnostic.emailMatches)}
-                </td>
-              </tr>
-              <tr>
-                <td className='py-1 pr-3 font-semibold'>Name</td>
-                <td className='py-1'>
-                  itr: {result.kraDiagnostic.itr_name || "(blank)"} vs kra:{" "}
-                  {result.kraDiagnostic.kra_name || "(blank)"} — match:{" "}
-                  {String(result.kraDiagnostic.nameMatches)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       )}
     </ResultLayout>
   );

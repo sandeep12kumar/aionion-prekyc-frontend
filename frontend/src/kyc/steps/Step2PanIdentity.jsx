@@ -2,11 +2,6 @@ import React, { useState } from "react";
 import { StepShell, TextField } from "../formFields";
 import { apiUrl } from "../../lib/apiBase";
 
-// The real system decides KRA vs DigiLocker automatically from the PAN
-// verification response (see Open Question 2 in RM_KYC_FLOW_DESIGN.md) —
-// there's no backend wired up yet in this local prototype, so
-// `identity_route` here is a manual preview toggle only, purely so the DB
-// team can see both resulting screens. It is NOT how the real flow decides.
 export default function Step2PanIdentity({ data, onChange, allData }) {
   const set = (field) => (value) => {
     setVerificationError("");
@@ -52,8 +47,7 @@ export default function Step2PanIdentity({ data, onChange, allData }) {
       const verifiedData = { ...data, pan_number: String(data.pan_number || "").toUpperCase(), verification: result, identity_route: result.route };
       onChange(verifiedData);
       sessionStorage.setItem("kycVerificationResult", JSON.stringify({ ...result, leadId }));
-      // ITR details are shown first for every client. The Income Tax result
-      // page then routes on to KRA details or DigiLocker based on result.route.
+      // ITR details are shown first for every client, then on to DigiLocker.
       window.location.assign("/income-tax-result");
     } catch (error) {
       setVerificationError(error.message || "PAN verification failed.");
@@ -117,20 +111,6 @@ export default function Step2PanIdentity({ data, onChange, allData }) {
     >
       <TextField label="PAN Number" required value={data.pan_number} onChange={set("pan_number")} placeholder="ABCDE1234F" maxLength={10} pattern="[A-Z]{5}[0-9]{4}[A-Z]" />
       <TextField label="Date of Birth" required type="date" value={data.dob} onChange={set("dob")} max={maximumDob} />
-
-      {data.identity_route === "KRA" && (
-        <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">
-            KRA Record (read-only, pulled from CVLKRA)
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <TextField label="Name (KRA)" value={data.kra_name} onChange={set("kra_name")} disabled />
-            <TextField label="DOB (KRA)" value={data.kra_dob} onChange={set("kra_dob")} disabled />
-            <TextField label="Gender (KRA)" value={data.kra_gender} onChange={set("kra_gender")} disabled />
-            <TextField label="Address (KRA)" full value={data.kra_address} onChange={set("kra_address")} disabled />
-          </div>
-        </div>
-      )}
 
       {false && (
         <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 space-y-3">

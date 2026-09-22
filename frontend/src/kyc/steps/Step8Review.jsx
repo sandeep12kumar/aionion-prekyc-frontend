@@ -62,7 +62,7 @@ export default function Step8Review({ allData: data }) {
   };
 
   // Lead and PAN & Identity can go missing from in-memory/local-draft state
-  // (PAN verification hard-navigates to the KRA/Income Tax result page right
+  // (PAN verification hard-navigates to the Income Tax result page right
   // after updating state, which can outrun the save). Both are already
   // durably saved to the lead record in the database by that point, so pull
   // them from there instead of trusting client-side state for this page.
@@ -93,22 +93,7 @@ export default function Step8Review({ allData: data }) {
   const clientName = savedLead?.client_name || data.lead?.client_name;
   const panNumber = savedLead?.pan_number || data.panIdentity?.pan_number;
   const dob = savedLead?.dob ? savedLead.dob.slice(0, 10) : data.panIdentity?.dob;
-  // `provider` on the saved lead reflects whichever identity source ran
-  // last — CVL_KRA for the KRA route, or INCOME_TAX which becomes
-  // SETU_DIGILOCKER once DigiLocker completes on that route.
-  const route =
-    savedLead?.provider === "CVL_KRA"
-      ? "KRA"
-      : savedLead?.provider === "INCOME_TAX" || savedLead?.provider === "SETU_DIGILOCKER"
-      ? "INCOME_TAX"
-      : data.panIdentity?.identity_route;
-  const aadhaarLinked = savedLead?.aadhaar_seeding_status
-    ? savedLead.aadhaar_seeding_status
-    : route === "KRA"
-    ? "Yes"
-    : route === "INCOME_TAX"
-    ? "No"
-    : "";
+  const aadhaarLinked = savedLead?.aadhaar_seeding_status || "";
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -126,13 +111,6 @@ export default function Step8Review({ allData: data }) {
           <ReviewRow label="PAN" value={panNumber} />
           <ReviewRow label="DOB" value={dob} />
           <ReviewRow label="Aadhaar Linked" value={aadhaarLinked} />
-          {route === "KRA" && (
-            <>
-              <ReviewRow label="KRA Name" value={savedLead?.kra_name} />
-              <ReviewRow label="Gender (KRA)" value={savedLead?.gender} />
-              <ReviewRow label="Address (KRA)" value={savedLead?.kra_address} />
-            </>
-          )}
         </ReviewCard>
 
         <ReviewCard title="Bank">
