@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   StepShell,
   TextField,
@@ -6,6 +6,7 @@ import {
   YesNoField,
   CheckboxField,
 } from "../formFields";
+import { apiUrl } from "../../lib/apiBase";
 
 const STANDING_INSTRUCTIONS = [
   [
@@ -97,13 +98,42 @@ function InstructionField({ label, options, value, onChange }) {
   );
 }
 
-export default function Step4Personal({ data, onChange }) {
+export default function Step4Personal({ data, onChange, allData }) {
   const set = (field) => (value) => onChange({ ...data, [field]: value });
   const setSI = (field) => (value) =>
     onChange({
       ...data,
       standing_instructions: { ...data.standing_instructions, [field]: value },
     });
+
+  // Default Father's Name and Aadhaar/Permanent Address from the DigiLocker
+  // record already saved on this lead — the RM can still edit either field
+  // afterward. Fetched fresh (not read out of the client-side draft) since
+  // the draft can be resumed from before DigiLocker ever completed. Runs
+  // once per lead, and only fills fields that are still empty so it never
+  // overwrites something the RM already typed.
+  const prefilledLeadId = useRef(null);
+  useEffect(() => {
+    const leadId = allData?.lead?.databaseId;
+    if (!leadId || prefilledLeadId.current === leadId) return;
+    prefilledLeadId.current = leadId;
+    fetch(apiUrl(`/api/kyc/leads/${leadId}`))
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        const lead = result?.lead;
+        if (!lead) return;
+        const updates = {};
+        if (!data.father_name && lead.digilocker_father_name) {
+          updates.father_name = lead.digilocker_father_name;
+        }
+        if (!data.aadhaar_address && lead.digilocker_address) {
+          updates.aadhaar_address = lead.digilocker_address;
+        }
+        if (Object.keys(updates).length) onChange({ ...data, ...updates });
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allData?.lead?.databaseId]);
 
   return (
     <StepShell title='Personal Details'>
@@ -113,6 +143,7 @@ export default function Step4Personal({ data, onChange }) {
           required
           value={data.father_name}
           onChange={set("father_name")}
+          placeholder='Pre-filled from DigiLocker when available'
         />
         {data.father_name && /\d/.test(data.father_name) && (
           <p className='mt-1 text-xs text-rose-600'>
