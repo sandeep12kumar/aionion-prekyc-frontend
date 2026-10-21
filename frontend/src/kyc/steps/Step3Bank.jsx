@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { StepShell, TextField, SelectField } from "../formFields";
 import { apiUrl } from "../../lib/apiBase";
 
+const BANK_PROOF_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const BANK_PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
 export default function Step3Bank({ data, onChange }) {
   const [accountMasked, setAccountMasked] = useState(false);
   const [confirmMasked, setConfirmMasked] = useState(false);
@@ -11,7 +14,9 @@ export default function Step3Bank({ data, onChange }) {
     const normalized = ["account_number", "confirm_account_number"].includes(field)
       ? value.replace(/\D/g, "")
       : field === "ifsc_code" ? value.toUpperCase() : value;
-    const next = { ...data, [field]: normalized, bank_verified: false };
+    // A different account/IFSC needs a fresh penny drop, so any earlier
+    // name-mismatch result and its proof no longer apply.
+    const next = { ...data, [field]: normalized, bank_verified: false, name_mismatch: null, bank_proof_file: null, bank_proof_type: "" };
     if (field === "ifsc_code") {
       next.bank_name = "";
       next.branch_name = "";
@@ -19,6 +24,21 @@ export default function Step3Bank({ data, onChange }) {
       next.micr_code = "";
     }
     onChange(next);
+  };
+  const [proofError, setProofError] = useState("");
+  const proofFile = data.bank_proof_file instanceof File ? data.bank_proof_file : null;
+  const chooseProofFile = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setProofError("");
+    if (!file) return;
+    if (!BANK_PROOF_MIME_TYPES.includes(file.type)) {
+      return setProofError("Only PDF, JPG, or PNG files can be uploaded.");
+    }
+    if (file.size > BANK_PROOF_MAX_BYTES) {
+      return setProofError("The bank proof must be 5 MB or smaller.");
+    }
+    onChange({ ...data, bank_proof_file: file });
   };
   const accountMismatch = Boolean(
     data.account_number
@@ -94,6 +114,38 @@ export default function Step3Bank({ data, onChange }) {
       <TextField label="Bank Name" value={data.bank_name} onChange={set("bank_name")} disabled placeholder="Auto-fetched from IFSC" />
       <TextField label="Branch Name" value={data.branch_name} onChange={set("branch_name")} disabled placeholder="Auto-fetched from IFSC" />
       <TextField label="Bank Address" full value={data.bank_address} onChange={set("bank_address")} disabled placeholder="Auto-fetched from IFSC" />
+      {data.name_mismatch && (
+        <div className="sm:col-span-2 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950">
+          <p className="text-xs font-bold text-amber-800 dark:text-amber-200">Account holder name does not match</p>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+            Bank records show "{data.name_mismatch.accountHolderName}" but the applicant is "{data.name_mismatch.applicantName}".
+            Upload a bank statement or cancelled cheque showing the client's name, then click Save &amp; Continue.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SelectField
+              label="Proof Type"
+              required
+              value={data.bank_proof_type}
+              onChange={(value) => onChange({ ...data, bank_proof_type: value })}
+              options={[{ value: "BANK_STATEMENT", label: "Bank Statement" }, { value: "CANCELLED_CHEQUE", label: "Cancelled Cheque" }]}
+            />
+            <div>
+              <label className="mb-1 block text-xs font-bold text-slate-600 dark:text-slate-300">
+                Upload Proof <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={chooseProofFile}
+                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-blue-700 dark:text-slate-300"
+              />
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">PDF, JPG, or PNG, up to 5 MB.</p>
+              {proofFile && <p className="mt-1 text-xs font-medium text-emerald-600">Selected: {proofFile.name}</p>}
+              {proofError && <p className="mt-1 text-xs font-medium text-rose-600">{proofError}</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </StepShell>
   );
 }

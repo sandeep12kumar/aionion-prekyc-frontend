@@ -378,23 +378,61 @@ export default function RmKycFlow() {
         return;
       }
 
+      // After a name mismatch the RM must attach a bank statement or
+      // cancelled cheque; that retry goes as multipart with the file.
+      const { bank_proof_file: proofFile, name_mismatch: nameMismatch, ...bankFields } = data.bank;
+      const hasProof = proofFile instanceof File;
+      if (nameMismatch && (!hasProof || !data.bank.bank_proof_type)) {
+        setSaveError(
+          "Select the proof type and upload a bank statement or cancelled cheque to continue.",
+        );
+        return;
+      }
+
       setIsSaving(true);
 
       try {
-        const response = await fetch(
-          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/bank/verify-and-save`),
-          {
+        let requestOptions;
+        if (nameMismatch && hasProof) {
+          const body = new FormData();
+          for (const [key, value] of Object.entries(bankFields)) {
+            if (value !== null && value !== undefined && typeof value !== "object") body.append(key, value);
+          }
+          body.append("bankProof", proofFile);
+          requestOptions = { method: "POST", body };
+        } else {
+          requestOptions = {
             method: "POST",
 
             headers: {
               "Content-Type": "application/json",
             },
 
-            body: JSON.stringify(data.bank),
-          },
+            body: JSON.stringify(bankFields),
+          };
+        }
+
+        const response = await fetch(
+          apiUrl(`/api/kyc/leads/${data.lead.databaseId}/bank/verify-and-save`),
+          requestOptions,
         );
 
         const result = await response.json().catch(() => ({}));
+
+        if (result.code === "BANK_NAME_MISMATCH" && result.proofRequired) {
+          setData((previous) => ({
+            ...previous,
+            bank: {
+              ...previous.bank,
+              bank_verified: false,
+              name_mismatch: {
+                accountHolderName: result.accountHolderName,
+                applicantName: result.applicantName,
+              },
+            },
+          }));
+          throw new Error(result.message);
+        }
 
         if (!response.ok || !result.verified) {
           throw new Error(
@@ -407,10 +445,11 @@ export default function RmKycFlow() {
           ...data,
 
           bank: {
-            ...data.bank,
+            ...bankFields,
             ...result.bank,
             bank_verified: true,
             verification: result.verification,
+            bank_proof: result.bankProof || null,
           },
         };
 
@@ -425,7 +464,9 @@ export default function RmKycFlow() {
         );
 
         setSaveMessage(
-          "Bank account verified and saved",
+          result.bankProof
+            ? "Bank account saved with the uploaded proof"
+            : "Bank account verified and saved",
         );
 
         handleNext();
