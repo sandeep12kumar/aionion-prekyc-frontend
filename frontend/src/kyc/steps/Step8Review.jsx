@@ -98,6 +98,9 @@ export default function Step8Review({ allData: data }) {
   return (
     <div className="mx-auto max-w-3xl">
       <h2 className="text-lg font-bold text-slate-900 dark:text-white">Review & Send</h2>
+      {data.rmResumed && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        This application was resumed. Details from earlier steps remain saved on the application, but fields absent from this browser's draft may appear blank below. Verify the saved record before sending the client link.
+      </p>}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <ReviewCard title="Lead">

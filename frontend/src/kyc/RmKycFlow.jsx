@@ -60,6 +60,19 @@ const STEPS = [
   },
 ];
 
+const RESUME_STAGES = {
+  bank: "bank", personal: "personal", nominee: "nominee",
+  scheme: "scheme", signature: "signature", review: "review",
+};
+
+function resumeTarget(lead) {
+  if (lead.is_completed || ["payment", "ipv", "esign", "esigned"].includes(lead.current_stage)) return "client";
+  if (lead.has_signature) return "review";
+  if (lead.current_stage === "digilocker" && !lead.has_digilocker) return "digilocker";
+  if (lead.current_stage === "digilocker" && lead.has_digilocker) return "bank";
+  return RESUME_STAGES[lead.current_stage] || "panIdentity";
+}
+
 function emptyData() {
   let verifiedIdentity = null;
 
@@ -208,7 +221,84 @@ export default function RmKycFlow() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [resumeId, setResumeId] = useState("");
+  const [resumeBusy, setResumeBusy] = useState(false);
+  const [resumeError, setResumeError] = useState("");
+  const [resumeInfo, setResumeInfo] = useState(null);
+  const [resumedAt, setResumedAt] = useState(null);
+  const initialLeadId = useRef(new URLSearchParams(window.location.search).get("leadId"));
   const hasSyncedInitialUrl = useRef(false);
+
+  const resumeApplication = async (value) => {
+    const id = Number(value);
+    if (!Number.isSafeInteger(id) || id < 1) return setResumeError("Enter a valid application ID.");
+    setResumeBusy(true);
+    setResumeError("");
+    try {
+      const response = await fetch(apiUrl(`/api/kyc/leads/${id}`));
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.lead) throw new Error(result.message || "Application not found.");
+      const lead = result.lead;
+      if (lead.kyc_type !== "PRE KYC") throw new Error("This application is not in the PRE KYC RM flow.");
+      const target = resumeTarget(lead);
+      let stored = null;
+      try {
+        const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        if (draft?.lead?.databaseId === id) stored = draft;
+      } catch { /* Continue from server state. */ }
+      const fresh = emptyData();
+      fresh.personal.aadhaar_address = lead.digilocker_address || "";
+      const next = {
+        ...fresh, ...(stored || {}),
+        rmResumed: true,
+        lead: { ...(stored?.lead || {}), databaseId: id, uniqueId: lead.unique_id,
+          client_name: lead.client_name || "", mobile_number: lead.mobile_number || "",
+          email: lead.email || "", kyc_type: "RM_KYC" },
+        panIdentity: { ...(stored?.panIdentity || {}), pan_number: lead.pan_number || "",
+          dob: lead.dob ? String(lead.dob).slice(0, 10) : "",
+          pan_image: lead.has_pan_image ? { fileName: "Saved PAN image" } : stored?.panIdentity?.pan_image },
+        signature: { ...(stored?.signature || {}),
+          signature_image: lead.has_signature ? { fileName: "Saved signature" } : stored?.signature?.signature_image },
+      };
+      setData(next);
+      setResumeInfo({ id, name: lead.client_name, stage: lead.current_stage, target });
+      if (target !== "client") {
+        const index = STEPS.findIndex((item) => item.key === (target === "digilocker" ? "panIdentity" : target));
+        setResumedAt(Math.max(index, 1));
+        setStepIndex(Math.max(index, 1));
+      }
+      setSaveError("");
+    } catch (error) {
+      setResumeError(error.message || "Could not resume this application.");
+    } finally {
+      setResumeBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialLeadId.current) {
+      setResumeId(initialLeadId.current);
+      resumeApplication(initialLeadId.current);
+    }
+  }, []);
+
+  const restartDigilocker = async () => {
+    if (resumeInfo?.target !== "digilocker") return;
+    setResumeBusy(true);
+    setResumeError("");
+    try {
+      const response = await fetch(apiUrl(`/api/kyc/leads/${resumeInfo.id}/digilocker/start`), { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      const url = result.url || result.redirectUrl || result.redirect_url || result.data?.url;
+      if (!response.ok || !url) throw new Error(result.message || "Could not start DigiLocker.");
+      const requestId = result.id || result.requestId || result.request_id || result.data?.id;
+      if (requestId) sessionStorage.setItem("digilockerRequestId", String(requestId));
+      window.location.assign(url);
+    } catch (error) {
+      setResumeError(error.message || "Could not start DigiLocker.");
+      setResumeBusy(false);
+    }
+  };
 
   // Keep the URL's pathname in sync with the current step (and drop the
   // one-time `?step=...&leadId=...` handoff query string once it's been
@@ -1059,6 +1149,41 @@ export default function RmKycFlow() {
         </div>
       </div>
 
+      <section className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+        <h2 className="text-sm font-bold text-blue-900 dark:text-blue-100">Resume an existing application</h2>
+        <p className="mt-1 text-xs text-blue-800 dark:text-blue-200">Enter the application ID. The saved stage is loaded from the server; this will not create another lead.</p>
+        <form className="mt-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); resumeApplication(resumeId); }}>
+          <input aria-label="Application ID" type="text" inputMode="numeric" pattern="[0-9]+"
+            value={resumeId} onChange={(event) => setResumeId(event.target.value.replace(/\D/g, ""))}
+            placeholder="Application ID" className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-900" />
+          <button type="submit" disabled={resumeBusy} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+            {resumeBusy ? "Loading…" : "Resume application"}
+          </button>
+          {resumeInfo && <button type="button" onClick={() => {
+            localStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem("kycVerificationResult");
+            setData(emptyData());
+            setResumeInfo(null);
+            setResumedAt(null);
+            setResumeId("");
+            setResumeError("");
+            setStepIndex(0);
+          }} className="rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-bold text-blue-800">
+            Start a new lead
+          </button>}
+        </form>
+        {resumeInfo && <div className="mt-3 text-sm text-blue-900 dark:text-blue-100">
+          Application {resumeInfo.id} · {resumeInfo.name || "Client"} · saved stage: {resumeInfo.stage || "PAN & Identity"}
+          {resumeInfo.target === "digilocker" && <div className="mt-2">
+            <p className="mb-2 text-xs">DigiLocker is still pending. Start a new request for this application.</p>
+            <button type="button" disabled={resumeBusy} onClick={restartDigilocker}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Start DigiLocker again</button>
+          </div>}
+          {resumeInfo.target === "client" && <p className="mt-2 text-xs">The RM steps are finished. Continue through the existing client link or check the application in KYC Ops.</p>}
+        </div>}
+        {resumeError && <p role="alert" className="mt-2 text-sm text-rose-700">{resumeError}</p>}
+      </section>
+
       {/* Steps */}
 
       <div className="mb-8 flex items-center gap-1 overflow-x-auto pb-2">
@@ -1066,9 +1191,9 @@ export default function RmKycFlow() {
           <React.Fragment key={stepItem.key}>
             <button
               type="button"
-              onClick={() =>
-                setStepIndex(index)
-              }
+              onClick={() => setStepIndex(index)}
+              disabled={resumeInfo?.target === "client" || resumeInfo?.target === "digilocker" ||
+                (resumedAt !== null && (index < resumedAt || index > stepIndex))}
               className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
                 index === stepIndex
                   ? "bg-blue-600 text-white"
@@ -1091,20 +1216,20 @@ export default function RmKycFlow() {
       {/* Current Step */}
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
-        <StepComponent
+        {resumeInfo?.target !== "client" && resumeInfo?.target !== "digilocker" && <StepComponent
           data={data[step.key]}
           onChange={updateStepData(
             step.key,
           )}
           allData={data}
-        />
+        />}
       </div>
 
       {/* Navigation */}
 
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap gap-2">
-          {!isLast && (
+          {!isLast && resumeInfo?.target !== "client" && resumeInfo?.target !== "digilocker" && (
             <button
               type="button"
               onClick={handleSaveAndContinue}
