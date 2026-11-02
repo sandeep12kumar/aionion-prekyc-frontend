@@ -49,6 +49,8 @@ export default function App() {
   const esignReturn = isEsignReturn()
   const [link, setLink] = useState(null)
   const [loadError, setLoadError] = useState('')
+  // Backend refuses (APPLICATION_NOT_READY) until the RM has saved every step.
+  const [notReady, setNotReady] = useState(false)
   const [step, setStep] = useState(() => stepFromPathname(window.location.pathname) || 'review')
   const hasSyncedInitialUrl = useRef(false)
 
@@ -58,6 +60,7 @@ export default function App() {
       return
     }
     setLoadError('')
+    setNotReady(false)
     getClientLink(applicationId)
       .then((data) => {
         setLink(data)
@@ -68,8 +71,10 @@ export default function App() {
         // attempt even if OTP verification never completed.
         const bothVerified = data.mobileVerified && data.emailVerified
         if (bothVerified) setStep((s) => (s === 'review' || s === 'verify' ? 'payment' : s))
-        if (bothVerified && data.paymentStatus === 'paid')
-          setStep((s) => (s === 'review' || s === 'verify' || s === 'payment' ? 'ipv' : s))
+        if (bothVerified && (data.paymentStatus === 'paid' || data.fundsIpvApproved)) {
+          const resume = data.currentStage === 'esign' ? 'esign' : 'ipv'
+          setStep((s) => (s === 'review' || s === 'verify' || s === 'payment' ? resume : s))
+        }
 
         // eSign already finished on an earlier visit — go straight to the
         // final screen.
@@ -95,7 +100,10 @@ export default function App() {
           }
         }
       })
-      .catch((error) => setLoadError(error.message))
+      .catch((error) => {
+        if (error.code === 'APPLICATION_NOT_READY') setNotReady(true)
+        setLoadError(error.message)
+      })
   }, [applicationId, esignReturn])
 
   useEffect(() => {
@@ -142,8 +150,23 @@ export default function App() {
       <div className="relative flex min-h-dvh flex-col items-center justify-center px-4 text-center">
         <AuroraBackground />
         <div className="glass max-w-sm rounded-2xl p-6">
-          <p className="font-display text-base font-bold text-ink">Can&apos;t open this application</p>
-          <p className="mt-2 text-sm text-ink-muted">{loadError}</p>
+          <p className="font-display text-base font-bold text-ink">
+            {notReady ? 'Your application isn\u2019t ready yet' : 'Can\u2019t open this application'}
+          </p>
+          <p className="mt-2 text-sm text-ink-muted">
+            {notReady
+              ? 'Your Relationship Manager is still filling in your details. You\u2019ll get a message with this link once it\u2019s ready.'
+              : loadError}
+          </p>
+          {notReady && (
+            <button
+              type="button"
+              onClick={load}
+              className="mt-4 rounded-full bg-brand-bright px-4 py-1.5 text-xs font-semibold text-white"
+            >
+              Check again
+            </button>
+          )}
         </div>
       </div>
     )
@@ -238,7 +261,13 @@ export default function App() {
 
             {step === 'ipv' && <IpvStep applicationId={applicationId} onNext={() => go('esign')} />}
 
-            {step === 'esign' && (
+            {step === 'esign' && link.fundsIpvApproved && link.paymentStatus !== 'paid' && (
+              <div className="animate-step text-center text-sm text-ink-muted">
+                Your IPV is saved. Payment capture is still pending, so e-sign will be available after the payment is confirmed. Please return to this link later.
+              </div>
+            )}
+
+            {step === 'esign' && !(link.fundsIpvApproved && link.paymentStatus !== 'paid') && (
               <EsignStep
                 applicationId={applicationId}
                 esignReturn={esignReturn || (link.esignStarted && link.esignStatus !== 'completed')}

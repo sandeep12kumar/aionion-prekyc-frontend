@@ -52,13 +52,13 @@ export default function PaymentStep({ applicationId, scheme, placeOfSupply, bank
         handler: async (razorpayResponse) => {
           setState('verifying')
           try {
-            await verifyPayment(applicationId, {
+            const result = await verifyPayment(applicationId, {
               orderId: razorpayResponse.razorpay_order_id,
               paymentId: razorpayResponse.razorpay_payment_id,
               signature: razorpayResponse.razorpay_signature,
             })
             setPayRef(razorpayResponse.razorpay_payment_id)
-            setState('paid')
+            setState(result.data?.payment_status === 'paid' ? 'paid' : 'pending-capture')
           } catch (err) {
             setError(err.message)
             setState('review')
@@ -93,6 +93,16 @@ export default function PaymentStep({ applicationId, scheme, placeOfSupply, bank
             ? `Verifying funds are coming from ${bank.name} account ending ${bank.accountLast4}.`
             : 'Please complete the payment in the window that opened.'}
         </p>
+      </div>
+    )
+  }
+
+  if (state === 'pending-capture') {
+    return (
+      <div className="animate-step text-center text-sm text-ink-muted">
+        <h1 className="font-display text-xl font-bold text-ink">Payment authorization received</h1>
+        <p className="mt-3">Your payment is awaiting capture. Please do not pay again. You can return to this link after the payment is confirmed.</p>
+        {payRef && <p className="mt-3">Payment reference: {payRef}</p>}
       </div>
     )
   }
