@@ -261,13 +261,7 @@ export default function App() {
 
             {step === 'ipv' && <IpvStep applicationId={applicationId} onNext={() => go('esign')} />}
 
-            {step === 'esign' && link.fundsIpvApproved && link.paymentStatus !== 'paid' && (
-              <div className="animate-step text-center text-sm text-ink-muted">
-                Your IPV is saved. Payment capture is still pending, so e-sign will be available after the payment is confirmed. Please return to this link later.
-              </div>
-            )}
-
-            {step === 'esign' && !(link.fundsIpvApproved && link.paymentStatus !== 'paid') && (
+            {step === 'esign' && (
               <EsignStep
                 applicationId={applicationId}
                 esignReturn={esignReturn || (link.esignStarted && link.esignStatus !== 'completed')}
