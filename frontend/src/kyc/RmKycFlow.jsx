@@ -227,6 +227,8 @@ export default function RmKycFlow() {
   const [resumeInfo, setResumeInfo] = useState(null);
   const [resumedAt, setResumedAt] = useState(null);
   const initialLeadId = useRef(new URLSearchParams(window.location.search).get("leadId"));
+  const [initialResumePending, setInitialResumePending] = useState(Boolean(initialLeadId.current));
+  const [initialResumeFailed, setInitialResumeFailed] = useState(false);
   const hasSyncedInitialUrl = useRef(false);
 
   const resumeApplication = async (value) => {
@@ -270,6 +272,7 @@ export default function RmKycFlow() {
       setSaveError("");
     } catch (error) {
       setResumeError(error.message || "Could not resume this application.");
+      if (String(value) === String(initialLeadId.current)) setInitialResumeFailed(true);
     } finally {
       setResumeBusy(false);
     }
@@ -278,7 +281,7 @@ export default function RmKycFlow() {
   useEffect(() => {
     if (initialLeadId.current) {
       setResumeId(initialLeadId.current);
-      resumeApplication(initialLeadId.current);
+      resumeApplication(initialLeadId.current).finally(() => setInitialResumePending(false));
     }
   }, []);
 
@@ -300,16 +303,15 @@ export default function RmKycFlow() {
     }
   };
 
-  // Keep the URL's pathname in sync with the current step (and drop the
-  // one-time `?step=...&leadId=...` handoff query string once it's been
-  // read into state above — a later refresh has nothing left to resume
-  // from that way, and genuinely starts fresh instead of restoring the
-  // same draft every time). The very first sync replaces so it doesn't add
+  // Keep the application ID in the URL so refresh and a reopened RM link
+  // reload the same saved application. Drop the one-time `step` parameter.
+  // The very first sync replaces so it doesn't add
   // an extra back-button hop; every step change after that pushes a real
   // history entry so browser back/forward moves between steps.
   useEffect(() => {
-    const target = `/${STEPS[stepIndex].key}`;
-    if (window.location.pathname === target && !window.location.search) {
+    const id = resumeInfo?.id || initialLeadId.current;
+    const target = `/${STEPS[stepIndex].key}${id ? `?leadId=${encodeURIComponent(id)}` : ""}`;
+    if (`${window.location.pathname}${window.location.search}` === target) {
       hasSyncedInitialUrl.current = true;
       return;
     }
@@ -319,7 +321,7 @@ export default function RmKycFlow() {
       window.history.replaceState(null, "", target);
       hasSyncedInitialUrl.current = true;
     }
-  }, [stepIndex]);
+  }, [stepIndex, resumeInfo]);
 
   // Browser back/forward between steps.
   useEffect(() => {
@@ -350,6 +352,7 @@ export default function RmKycFlow() {
   // point was lost, which is why Lead and PAN & Identity details went
   // missing by the time the flow came back on Bank/Review.
   useEffect(() => {
+    if (initialResumePending || initialResumeFailed) return;
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -357,7 +360,7 @@ export default function RmKycFlow() {
         savedAt: new Date().toISOString(),
       }),
     );
-  }, [data]);
+  }, [data, initialResumePending, initialResumeFailed]);
 
   const step = STEPS[stepIndex];
 
@@ -1125,6 +1128,12 @@ export default function RmKycFlow() {
 
   const StepComponent = step.Component;
 
+  if (initialResumePending || initialResumeFailed) {
+    return <div role={initialResumeFailed ? "alert" : "status"} className="mx-auto max-w-xl rounded-xl border border-blue-200 bg-white p-6 text-sm text-slate-800">
+      {initialResumePending ? "Loading the saved application…" : (resumeError || "Unable to resume this application.")}
+    </div>;
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       {/* Header */}
@@ -1162,6 +1171,8 @@ export default function RmKycFlow() {
           {resumeInfo && <button type="button" onClick={() => {
             localStorage.removeItem(STORAGE_KEY);
             sessionStorage.removeItem("kycVerificationResult");
+            initialLeadId.current = null;
+            window.history.replaceState(null, "", "/lead");
             setData(emptyData());
             setResumeInfo(null);
             setResumedAt(null);

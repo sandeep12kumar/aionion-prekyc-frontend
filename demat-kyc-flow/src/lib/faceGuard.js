@@ -47,11 +47,14 @@ export function analyseFrame(landmarker, video, tsMs) {
   const faces = result.faceLandmarks || []
   const faceCount = faces.length
   if (faceCount === 0) {
-    return { faceCount: 0, faceFrac: 0, centered: false, blink: 0, nose: null }
+    return { faceCount: 0, secondFaces: 0, faceFrac: 0, centered: false, blink: 0, nose: null }
   }
 
-  // biggest face's normalised bounding box
+  // biggest face's normalised bounding box; count faces big enough to be a person
+  // close to the camera (a face in a background photo or poster is much smaller)
   let best = { frac: 0, cx: 0.5, cy: 0.5, nose: null }
+  let significant = 0
+  const faceDebug = [] // DEBUG-FACE: temporary, remove after the multi-face check is diagnosed
   for (const lm of faces) {
     let minX = 1
     let maxX = 0
@@ -64,6 +67,8 @@ export function analyseFrame(landmarker, video, tsMs) {
       if (p.y > maxY) maxY = p.y
     }
     const frac = Math.max(maxX - minX, maxY - minY)
+    faceDebug.push({ frac: +frac.toFixed(3), cx: +((minX + maxX) / 2).toFixed(3), cy: +((minY + maxY) / 2).toFixed(3) }) // DEBUG-FACE
+    if (frac >= GUARD.MIN_OTHER_FACE_FRAC) significant += 1
     if (frac > best.frac) {
       best = {
         frac,
@@ -74,6 +79,8 @@ export function analyseFrame(landmarker, video, tsMs) {
     }
   }
 
+  if (faces.length > 1) console.debug('[DEBUG-FACE] faces in frame', faceDebug) // DEBUG-FACE
+
   let blink = 0
   const categories = result.faceBlendshapes?.[0]?.categories
   if (categories) {
@@ -83,12 +90,15 @@ export function analyseFrame(landmarker, video, tsMs) {
   }
 
   const centered = best.cx > 0.26 && best.cx < 0.74 && best.cy > 0.18 && best.cy < 0.86
-  return { faceCount, faceFrac: best.frac, centered, blink, nose: best.nose }
+  // faces other than the main one that are big enough to be a second person
+  const secondFaces = significant - (best.frac >= GUARD.MIN_OTHER_FACE_FRAC ? 1 : 0)
+  return { faceCount, secondFaces, faceFrac: best.frac, centered, blink, nose: best.nose }
 }
 
 // thresholds, exported so IpvStep and any tests agree
 export const GUARD = {
   MIN_FACE_FRAC: 0.22, // face must fill ≥22% of the frame's larger dimension
+  MIN_OTHER_FACE_FRAC: 0.15, // a second face must fill ≥15% of the frame to count as another person (shadows are smaller)
   BLINK_SCORE: 0.45, // a blendshape blink score this high counts as a blink
   MIN_NOSE_MOTION: 0.02, // total normalised nose travel over the clip if no blink
 }

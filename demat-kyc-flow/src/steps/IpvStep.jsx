@@ -58,6 +58,7 @@ export default function IpvStep({ applicationId, onNext }) {
   const rafRef = useRef(0)
   const lastTsRef = useRef(0)
   const prevNoseRef = useRef(null)
+  const multiFaceRunRef = useRef(0) // consecutive frames with a second person in view
   const checksRef = useRef(null)
 
   const setGuard = useCallback((code) => {
@@ -109,8 +110,11 @@ export default function IpvStep({ applicationId, onNext }) {
         }
 
         if (a) {
+          // A second person must show up for several frames in a row, so one stray
+          // detection doesn't block the client.
+          multiFaceRunRef.current = a.secondFaces > 0 ? multiFaceRunRef.current + 1 : 0
           if (a.faceCount === 0) setGuard('no-face')
-          else if (a.faceCount > 1) setGuard('multi-face')
+          else if (multiFaceRunRef.current >= 3) setGuard('multi-face')
           else if (a.faceFrac < GUARD.MIN_FACE_FRAC) setGuard('too-small')
           else if (!a.centered) setGuard('off-center')
           else setGuard('ready')
@@ -120,7 +124,7 @@ export default function IpvStep({ applicationId, onNext }) {
             const c = checksRef.current
             c.frames += 1
             if (a.faceCount === 0) c.noFaceFrames += 1
-            if (a.faceCount > 1) c.multiFaceFrames += 1
+            if (a.secondFaces > 0) c.multiFaceFrames += 1
             if (a.faceCount >= 1) c.minFaceFrac = Math.min(c.minFaceFrac, a.faceFrac)
             c.blinkMax = Math.max(c.blinkMax, a.blink)
             if (a.nose && prevNoseRef.current) {
