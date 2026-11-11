@@ -5,6 +5,11 @@ import { loadFaceGuard, analyseFrame, GUARD } from '../lib/faceGuard.js'
 
 const RECORD_SECONDS = 5
 
+// Build-time switch. VITE_IPV_FACE_CHECKS=off turns off every camera-based check:
+// face count, face size, centring, blink and head-movement liveness.
+// The location check is separate and stays on.
+const FACE_CHECKS = import.meta.env.VITE_IPV_FACE_CHECKS !== 'off'
+
 const GUARD_MESSAGE = {
   loading: 'Loading face check…',
   'no-face': 'No face detected — look straight at the camera.',
@@ -13,6 +18,7 @@ const GUARD_MESSAGE = {
   'off-center': 'Centre your face in the frame.',
   ready: 'Face detected — you can record.',
   unavailable: 'Live face check unavailable — recording will still be reviewed manually.',
+  disabled: 'Ready to record.',
 }
 
 function StatusPill({ ok, pending, children }) {
@@ -114,7 +120,7 @@ export default function IpvStep({ applicationId, onNext }) {
           // detection doesn't block the client.
           multiFaceRunRef.current = a.secondFaces > 0 ? multiFaceRunRef.current + 1 : 0
           if (a.faceCount === 0) setGuard('no-face')
-          else if (multiFaceRunRef.current >= 3) setGuard('multi-face')
+          else if (FACE_CHECKS && multiFaceRunRef.current >= 3) setGuard('multi-face')
           else if (a.faceFrac < GUARD.MIN_FACE_FRAC) setGuard('too-small')
           else if (!a.centered) setGuard('off-center')
           else setGuard('ready')
@@ -222,6 +228,10 @@ export default function IpvStep({ applicationId, onNext }) {
     setGuard('loading')
     await Promise.all([requestCamera(), requestLocation()])
     setPhase('live')
+    if (!FACE_CHECKS) {
+      setGuard('disabled')
+      return
+    }
     loadFaceGuard()
       .then((landmarker) => {
         guardRef.current = landmarker
@@ -300,7 +310,7 @@ export default function IpvStep({ applicationId, onNext }) {
 
   /** null = passed, string = why the take is rejected. Skipped if the guard never ran. */
   function validateLiveness(c) {
-    if (!c || c.frames === 0) return null // guard unavailable — reviewed manually
+    if (!FACE_CHECKS || !c || c.frames === 0) return null // checks off or guard unavailable — reviewed manually
     if (c.multiFaceFrames > 2) {
       return 'More than one person was detected. Only you should be in the frame — record again alone.'
     }
@@ -363,7 +373,7 @@ export default function IpvStep({ applicationId, onNext }) {
     }
   }
 
-  const guardReady = guardCode === 'ready' || guardCode === 'unavailable'
+  const guardReady = guardCode === 'ready' || guardCode === 'unavailable' || guardCode === 'disabled'
   const canRecord = camState === 'granted' && locState === 'granted' && guardReady
 
   /* ---------- done ---------- */
