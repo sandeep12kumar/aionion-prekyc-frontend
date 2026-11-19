@@ -282,7 +282,13 @@ export default function IpvStep({ applicationId, onNext }) {
       if (!window.MediaRecorder) throw new Error('no MediaRecorder')
       const candidates = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4']
       const mimeType = candidates.find((t) => MediaRecorder.isTypeSupported?.(t)) || ''
-      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      // Cap the bitrate: a 5-second liveness clip does not need the device default (several Mbps on
+      // phones), which made uploads too large for the server ("Request Entity Too Large").
+      const rec = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 500000,
+        audioBitsPerSecond: 32000,
+      })
       rec.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data)
       rec.onstop = () => finalizeRecorded(new Blob(chunksRef.current, { type: mimeType || 'video/webm' }))
       recorderRef.current = rec
