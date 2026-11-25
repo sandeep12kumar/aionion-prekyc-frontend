@@ -82,6 +82,13 @@ export default function App() {
           setStep('done')
           return
         }
+        // Ops moved this application to IPV (for example, after the client paid but did not sign).
+        // An older e-sign request may still be pending, so do not send the applicant back to it
+        // unless they are returning from Setu right now.
+        if (bothVerified && data.currentStage === 'ipv' && !esignReturn) {
+          setStep('ipv')
+          return
+        }
         // eSign was started (client came back from Setu, maybe closed the
         // tab) but isn't confirmed yet — land on the eSign step in polling
         // mode so it finalises and the completion email goes out.
